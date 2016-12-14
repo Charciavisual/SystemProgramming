@@ -26,6 +26,8 @@
 #define INPUT_ROW 18
 #define INPUT_COL 50
 #define DEAD_LINE 15
+#define LEFT_EDGE 41
+
 
 // typedef struct message{
 //
@@ -63,7 +65,7 @@ void init_stage();
 void move_msg(int signum);
 void compare_word(char word[]);
 void input_word();
-void read_word();
+//void read_word();
 void enable_kbd_signals();
 void game_over();
 void sigio_handler(int signum);
@@ -96,7 +98,7 @@ int fd[2];
 //int firstIdx=0;
 
 
-char read_buffer[BUF_SIZE]; //유저가 입력한 내용을 읽어들일 버퍼
+char read_word[20]; 
  
 typedef struct word_list{
 	
@@ -199,7 +201,7 @@ void *thread_1(void *none){
 
 void input_word() { //단어를 입력하여 parent로 write
 	
-	char read_word[20]; 
+	
 	char c;
 	int i=0;
 	move(INPUT_ROW, INPUT_COL);
@@ -213,11 +215,32 @@ void input_word() { //단어를 입력하여 parent로 write
 
 		if(c=='\n') {
 			read_word[i] = '\0';
+			move(INPUT_ROW, INPUT_COL);
+			addstr("                    ");
+			move(INPUT_ROW, INPUT_COL);
 			break;
 		}
 
+		else if(c == 8) { // input backspace
+
+			if(i > 0){
+				i--;
+				read_word[i] = '\0';
+				move(INPUT_ROW, INPUT_COL);
+				addstr("                    ");
+				addstr(read_word);
+			}
+			
+			else {
+				move(INPUT_ROW, INPUT_COL);
+				addstr("                    ");
+			}
+		}
+		
 		else
 			read_word[i] = c;
+		
+			
 		
 		i++;
 	}
@@ -233,15 +256,15 @@ void compare_word(char word[]){
 	int i=0;
 	
 	for(i=0; i<dip_cnt; i++)
-		if(strcmp(display_word[i].word, word)==0){
+		if(strcmp(display_word[i].word, word)==0)
+			if(display_word[i].visible == 1){
 		
-			mvaddstr(display_word[i].row, display_word[i].col, BLANK);
-			strcpy(display_word[i].word, BLANK);	
-			display_word[i].visible = 0;
-			score += 10;
-			rmv_cnt++;
-			break;
-		}
+				mvaddstr(display_word[i].row, LEFT_EDGE, BLANK);	
+				display_word[i].visible = 0;
+				score += 10;
+				rmv_cnt++;
+				break;
+			}
 		
 		if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 1) {
 			
@@ -252,15 +275,18 @@ void compare_word(char word[]){
 			refresh();
 			
 		}
-}
-
-void read_word() {
-
-	if(read(fd[0], read_buffer, BUF_SIZE) != -1)
-		compare_word(read_buffer);
 		
-	//출력중인 단어 리스트 순회 -> strcmp == 0 이면 blank
+		for(i=0; i<MESSAGE_SIZE; i++)
+			read_word[i] = '\0';
 }
+
+// void read_word() {
+//
+// 	if(read(fd[0], read_buffer, BUF_SIZE) != -1)
+// 		compare_word(read_buffer);
+//
+// 	//출력중인 단어 리스트 순회 -> strcmp == 0 이면 blank
+// }
 
 
 void enable_kbd_signals() {
@@ -518,6 +544,7 @@ void move_msg(int signum){
 			}
 			
 			move(INPUT_ROW, INPUT_COL);
+			addstr(read_word);
 		    refresh();	
 		}
 		
