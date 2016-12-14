@@ -70,6 +70,7 @@ void enable_kbd_signals();
 void game_over();
 void sigio_handler(int signum);
 void *thread_1(void *none);
+void clear_check();
 
  
 
@@ -79,7 +80,7 @@ int stage = 1;
 
 
 
-char hp_message[4];
+char hp_message[5];
 
 int score = 0;
 
@@ -135,8 +136,6 @@ void main()
     no_echo();
 
     clear();
-
-	signal(SIGALRM,move_msg);
 	// signal(SIGIO, sigio_handler);
 // 	enable_kbd_signals();
 
@@ -183,13 +182,27 @@ void sigio_handler(int signum) {
 
 void init_stage() {
 
+	int i = 0;
+	char start_msg[20];
+	
 	clear();
+	print_map();
+	sprintf(start_msg, "Stage : %d", stage);
+	move(23,50);
+	addstr(BLANK);
+	move(24,50);
+	addstr(BLANK);
+	move(23,50);
+	addstr(start_msg);
+	
 	
 	dip_cnt = 0;
 	rmv_cnt = 0;
 	
 	hp[1] = 10;
 	hp[2] = 20;
+	
+	refresh();
 	
 	
 }
@@ -216,24 +229,26 @@ void input_word() { //단어를 입력하여 parent로 write
 		if(c=='\n') {
 			read_word[i] = '\0';
 			move(INPUT_ROW, INPUT_COL);
-			addstr("                    ");
+			addstr("                   ");
 			move(INPUT_ROW, INPUT_COL);
 			break;
 		}
 
-		else if(c == 8) { // input backspace
+		else if(c == '\b') { // input backspace
 
 			if(i > 0){
 				i--;
 				read_word[i] = '\0';
 				move(INPUT_ROW, INPUT_COL);
-				addstr("                    ");
+				addstr("                   ");
 				addstr(read_word);
+				i--;
 			}
 			
 			else {
 				move(INPUT_ROW, INPUT_COL);
-				addstr("                    ");
+				addstr("                   ");
+				i--;
 			}
 		}
 		
@@ -263,21 +278,33 @@ void compare_word(char word[]){
 				display_word[i].visible = 0;
 				score += 10;
 				rmv_cnt++;
+				sprintf(hp_message, "%d", score);
+				mvaddstr(20,50,hp_message);
+				clear_check();
 				break;
 			}
 		
-		if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 1) {
-			
-			signal(SIGALRM, SIG_IGN);
-			stage++;
-			mvaddstr(10,55, "Stage clear\nNext Stage\n");
-			init_stage();
-			refresh();
-			
-		}
-		
 		for(i=0; i<MESSAGE_SIZE; i++)
 			read_word[i] = '\0';
+}
+
+void clear_check() {
+	
+	if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 1) {
+		
+		signal(SIGALRM, SIG_IGN);
+		stage++;
+		move(23,50);
+		addstr(BLANK);
+		move(23,50);
+		addstr("Stage Clear!!");
+		move(24,41);
+		addstr("Wait for start next stage.");
+		refresh();
+		sleep(3);
+		init_stage();
+		signal(SIGALRM,move_msg);
+	}
 }
 
 // void read_word() {
@@ -303,15 +330,12 @@ void start()
 {
 
 
+		signal(SIGALRM,move_msg);
 	// signal(SIGIO, input_word);
 	// enable_kbd_signals();
         void move_msg(int);
 		
 		init_stage();
-		
-		print_map();
-		
-        refresh();
 
         set_ticker(1000);
 
@@ -533,7 +557,6 @@ void move_msg(int signum){
 				rmv_cnt++;		
 				sprintf(hp_message, "%d", hp[stage]);
 				mvaddstr(19,50,hp_message);
-				
 				if(hp[stage] == 0) {
 					game_over();
 
@@ -544,11 +567,14 @@ void move_msg(int signum){
 			}
 			
 			move(INPUT_ROW, INPUT_COL);
+			addstr("                   ");
+			move(INPUT_ROW, INPUT_COL);
 			addstr(read_word);
+			
 		    refresh();	
 		}
 		
-		
+		clear_check();
 	}
 
 
@@ -557,7 +583,10 @@ void game_over() {
 	
 	int i=0;
 	
-	mvaddstr(22,50, "GAME OVER!!\n");
+	move(23,50);
+	addstr(BLANK);
+	move(23,50);
+	addstr("GAME OVER!!\n");
 	refresh();
 	
 }
@@ -701,6 +730,7 @@ void print_map()
         print_message(18,40,"|Input :                     |*");
 
         print_message(19,40,"|Hp    :                     |*");
+		print_message(20,40,"|Score :                     |*");
 
         // move(19,50);
  //
@@ -710,12 +740,14 @@ void print_map()
 		
 		sprintf(hp_message, "%d", hp[stage]);
 		mvaddstr(19,50,hp_message);
+		sprintf(hp_message, "%d", score);
+		mvaddstr(20,50,hp_message);
 
-        print_message(20,39,"*==============================*");
+        print_message(21,39,"*==============================*");
 
  
 
-        print_message(21,39,"********************************");
+        print_message(22,39,"********************************");
 
         move(18,50);
 
