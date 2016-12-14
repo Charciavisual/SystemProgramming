@@ -16,6 +16,7 @@
 
 #include <curses.h>
 #include <fcntl.h>
+#include <pthread.h>
 
  
 
@@ -61,12 +62,12 @@ void game_end();
 void init_stage();
 void move_msg(int signum);
 void compare_word(char word[]);
-void input_word(int signum);
-//void read_word(int fd);
+void input_word();
+void read_word();
 void enable_kbd_signals();
 void game_over();
-
-
+void sigio_handler(int signum);
+void *thread_1(void *none);
 
  
 
@@ -87,7 +88,7 @@ int dir=1;
 
 int num_word[3] = {0, 20, 30}; //num of words for each stage
 int hp[3] = {0, 10, 20}; // index 0 -> use(x), HP for stage1 = 10, stage2 = 20
-
+int fd[2];
 //message message_list[15]={0,};
 
 //int idx=0;
@@ -95,7 +96,7 @@ int hp[3] = {0, 10, 20}; // index 0 -> use(x), HP for stage1 = 10, stage2 = 20
 //int firstIdx=0;
 
 
-
+char read_buffer[BUF_SIZE]; //유저가 입력한 내용을 읽어들일 버퍼
  
 typedef struct word_list{
 	
@@ -119,6 +120,10 @@ void main()
 
 {
 	
+	
+	pid_t pid;
+	pthread_t t1;
+	
 	srand(time(NULL));
 	
     initscr();
@@ -130,36 +135,49 @@ void main()
     clear();
 
 	signal(SIGALRM,move_msg);
+	// signal(SIGIO, sigio_handler);
+// 	enable_kbd_signals();
+
 	
-	start();
-	// if(pipe(fd)==-1) //pipe 를 통해 child와 parent의 통신 구현
+	pthread_create(&t1, NULL, thread_1, NULL);
+	
+	while(hp[stage] > 0) 
+		input_word();
+	// if(pipe(fd)==-1){ //pipe 를 통해 child와 parent의 통신 구현
 // 		perror("pipe");
-//
-// 	if((pid=fork())==-1)
+// 		exit(0);
+// 	}
+	// if((pid=fork())==-1){
 // 		perror("fork");
-	
-	
-	
+// 		exit(0);
+// 	}
+
+
 	// if(pid == 0) { //child 에서 단어를 입력받음
-// 		input_word(fd[1]);
 //
+// 		signal(SIGIO, sigio_handler);
+// 		enable_kbd_signals();
 // 	}
 //
 //
 //  	if(pid>0) { //parent 에서는 단어 display
 //
-// 		signal(SIGIO, read_word());
-// 		enable_kbd_signals();
+//
 // 		start();
 //
 //  	}
 
-        
+	pthread_join(t1, NULL);
 
        endwin();
 
 }
 
+void sigio_handler(int signum) {
+	
+	input_word();
+	
+}
 
 void init_stage() {
 
@@ -168,20 +186,43 @@ void init_stage() {
 	dip_cnt = 0;
 	rmv_cnt = 0;
 	
-	
+	hp[1] = 10;
+	hp[2] = 20;
 	
 	
 }
 
-void input_word(int signum) { //단어를 입력하여 parent로 write
+void *thread_1(void *none){
+	
+	start();
+}
+
+void input_word() { //단어를 입력하여 parent로 write
 	
 	char read_word[20]; 
-	
+	char c;
+	int i=0;
 	move(INPUT_ROW, INPUT_COL);
-	fgets(read_word, sizeof(read_word), stdin);
-	read_word[strlen(read_word)-1] = '\0';
-	
-	//write(fd, word, BUFSIZ);
+	//fgets(stdin, read_word, BUF_SIZE);
+	//read_word[strlen(read_word)-1] = '\0';
+
+
+	while(1) {
+
+		c = getch();
+
+		if(c=='\n') {
+			read_word[i] = '\0';
+			break;
+		}
+
+		else
+			read_word[i] = c;
+		
+		i++;
+	}
+
+// 	write(fd[1], read_word, BUFSIZ);
 	compare_word(read_word);
 	move(INPUT_ROW, INPUT_COL);
 	
@@ -212,13 +253,15 @@ void compare_word(char word[]){
 			
 		}
 }
-//
-// void read_word(int fd) {
-//
-// 	read(fd, buffer, BUF_SIZE);
-//
-// 	//출력중인 단어 리스트 순회 -> strcmp == 0 이면 blank
-// }
+
+void read_word() {
+
+	if(read(fd[0], read_buffer, BUF_SIZE) != -1)
+		compare_word(read_buffer);
+		
+	//출력중인 단어 리스트 순회 -> strcmp == 0 이면 blank
+}
+
 
 void enable_kbd_signals() {
 
@@ -234,9 +277,11 @@ void start()
 {
 
 
-	signal(SIGIO, input_word);
-	enable_kbd_signals();
+	// signal(SIGIO, input_word);
+	// enable_kbd_signals();
         void move_msg(int);
+		
+		init_stage();
 		
 		print_map();
 		
@@ -245,6 +290,7 @@ void start()
         set_ticker(1000);
 
  
+		
 
         //signal(SIGALRM,move_msg);
 
@@ -459,7 +505,7 @@ void move_msg(int signum){
 				display_word[i].visible = 0;
 				hp[stage] = hp[stage] - 1;
 				rmv_cnt++;		
-				sprintf(hp_message, "%1d", hp[stage]);
+				sprintf(hp_message, "%d", hp[stage]);
 				mvaddstr(19,50,hp_message);
 				
 				if(hp[stage] == 0) {
