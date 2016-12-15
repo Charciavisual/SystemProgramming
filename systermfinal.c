@@ -23,49 +23,25 @@
 #define MESSAGE_SIZE 20
 #define BLANK "                                                  "
 #define BUF_SIZE 20
-#define INPUT_ROW 18
+#define INPUT_ROW 26
 #define INPUT_COL 20
-#define DEAD_LINE 15
+#define DEAD_LINE 23
 #define LEFT_EDGE 10
 
-
-// typedef struct message{
-//
-//         char word[MESSAGE_SIZE];
-//
-//         int row;
-//
-//         int col;
-//
-// }message;
-
- 
-
 void start();
-
 void no_echo();
-
 void cr_mode();
-
 int set_ticker(int);
-
 void print_message(int,int,char*);
-
 void print_word();
-
 void add_word(char*,int,int);
-
 int integer_to_string(int,char*);
-
 void print_map();
-
 void game_end();
-
 void init_stage();
 void move_msg(int signum);
 void compare_word(char word[]);
 void input_word();
-//void read_word();
 void enable_kbd_signals();
 void game_over();
 void sigio_handler(int signum);
@@ -74,36 +50,26 @@ void clear_check();
 
  
 
-//int full=0;
-
 int stage = 1;
-
-
-
 char hp_message[5];
-
 int score = 0;
-
 int dip_cnt = 0;
 int rmv_cnt = 0;
-
 int dir=1;
-
+int delay = 1500;
+int tic_cnt = 0;
 int num_word[3] = {0, 20, 30}; //num of words for each stage
 int hp[3] = {0, 10, 20}; // index 0 -> use(x), HP for stage1 = 10, stage2 = 20
 int fd[2];
-//message message_list[15]={0,};
+int exit_program = 1;
 
-//int idx=0;
-
-//int firstIdx=0;
 
 
 char read_word[20]; 
  
 typedef struct word_list{
 	
-	char word[100];
+	char word[20];
 	int row;
 	int col;
 	int visible;
@@ -111,6 +77,7 @@ typedef struct word_list{
 }WL;
 
 WL display_word[30];
+
 char word_list[30][MESSAGE_SIZE] = {"apple","banana","little","phone","car"
 					      ,"train","computer","bag","love","star"
 					      ,"queen","clock","dog","cat","monkey"
@@ -118,15 +85,13 @@ char word_list[30][MESSAGE_SIZE] = {"apple","banana","little","phone","car"
 					      ,"train","computer","bag","love","star"
 					      ,"queen","clock","dog","cat","monkey"};
 
-
 void main()
 
 {
-	
-	
-	pid_t pid;
 	pthread_t t1;
+	void sigint_handler(int signum);
 	
+	signal(SIGINT, sigint_handler);
 	srand(time(NULL));
 	
     initscr();
@@ -136,54 +101,40 @@ void main()
     no_echo();
 
     clear();
-	// signal(SIGIO, sigio_handler);
-// 	enable_kbd_signals();
 
-	
 	pthread_create(&t1, NULL, thread_1, NULL);
 	
-	while(hp[stage] > 0) 
+	while(exit_program) 
 		input_word();
-	// if(pipe(fd)==-1){ //pipe 를 통해 child와 parent의 통신 구현
-// 		perror("pipe");
-// 		exit(0);
-// 	}
-	// if((pid=fork())==-1){
-// 		perror("fork");
-// 		exit(0);
-// 	}
-
-
-	// if(pid == 0) { //child 에서 단어를 입력받음
-//
-// 		signal(SIGIO, sigio_handler);
-// 		enable_kbd_signals();
-// 	}
-//
-//
-//  	if(pid>0) { //parent 에서는 단어 display
-//
-//
-// 		start();
-//
-//  	}
 
 	pthread_join(t1, NULL);
 
        endwin();
 
 }
+void sigint_handler(int signum) {
+	
+	endwin();
+	exit(0);
+}
 
 void sigio_handler(int signum) {
 	
 	input_word();
-	
 }
 
 void init_stage() {
 
 	int i = 0;
 	char start_msg[20];
+	
+	dip_cnt = 0;
+	rmv_cnt = 0;
+	tic_cnt = 0;
+	delay = 1000;
+	
+	hp[1] = 10;
+	hp[2] = 20;
 	
 	clear();
 	print_map();
@@ -196,11 +147,7 @@ void init_stage() {
 	addstr(start_msg);
 	
 	
-	dip_cnt = 0;
-	rmv_cnt = 0;
 	
-	hp[1] = 10;
-	hp[2] = 20;
 	
 	refresh();
 	
@@ -210,17 +157,17 @@ void init_stage() {
 void *thread_1(void *none){
 	
 	start();
+	
+	while(exit_program)
+		pause();
 }
 
-void input_word() { //단어를 입력하여 parent로 write
+void input_word() {
 	
 	
 	char c;
 	int i=0;
 	move(INPUT_ROW, INPUT_COL);
-	//fgets(stdin, read_word, BUF_SIZE);
-	//read_word[strlen(read_word)-1] = '\0';
-
 
 	while(1) {
 
@@ -259,8 +206,6 @@ void input_word() { //단어를 입력하여 parent로 write
 		
 		i++;
 	}
-
-// 	write(fd[1], read_word, BUFSIZ);
 	compare_word(read_word);
 	move(INPUT_ROW, INPUT_COL);
 	
@@ -279,7 +224,7 @@ void compare_word(char word[]){
 				score += 10;
 				rmv_cnt++;
 				sprintf(hp_message, "%d", score);
-				mvaddstr(20,INPUT_COL,hp_message);
+				mvaddstr(DEAD_LINE+5,INPUT_COL,hp_message);
 				clear_check();
 				break;
 			}
@@ -290,10 +235,16 @@ void compare_word(char word[]){
 
 void clear_check() {
 	
-	signal(SIGALRM, SIG_IGN);
-	
-	if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 1) {
+	if(hp[stage] == 0) {
 		
+		
+		signal(SIGALRM, SIG_IGN);
+		game_over();
+	}
+	
+	
+	else if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 1) {
+		signal(SIGALRM, SIG_IGN);
 		stage++;
 		move(DEAD_LINE+8,11);
 		addstr(BLANK);
@@ -303,12 +254,11 @@ void clear_check() {
 		addstr("Wait for start next stage.");
 		refresh();
 		sleep(3);
-		init_stage();
-		signal(SIGALRM,move_msg);
+		start();
 	}
 	
 	else if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 2) {
-		
+		signal(SIGALRM, SIG_IGN);
 		move(DEAD_LINE+8,11);
 		addstr(BLANK);
 		move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
@@ -316,18 +266,10 @@ void clear_check() {
 		move(DEAD_LINE+9,((LEFT_EDGE+50)/2));
 		addstr("Congraturations!!!");
 		refresh();
+		exit_program = 0;
 		
 	}
 }
-
-// void read_word() {
-//
-// 	if(read(fd[0], read_buffer, BUF_SIZE) != -1)
-// 		compare_word(read_buffer);
-//
-// 	//출력중인 단어 리스트 순회 -> strcmp == 0 이면 blank
-// }
-
 
 void enable_kbd_signals() {
 
@@ -341,112 +283,10 @@ void enable_kbd_signals() {
 void start()
 
 {
-
-
 		signal(SIGALRM,move_msg);
-	// signal(SIGIO, input_word);
-	// enable_kbd_signals();
-        void move_msg(int);
-		
+        void move_msg(int);	
 		init_stage();
-
-        set_ticker(1000);
-
- 
-		
-
-        //signal(SIGALRM,move_msg);
-
- 
-		
-		
-       //  while(hp[stage]>0)
-//
-//         {
-//
-//                 if(input_idx>=MESSAGE_SIZE)
-//
-//                 {
-//
-//                         move(input_row,input_col);
-//
-//                         addstr("             ");
-//
-//                         move(input_row,input_col);
-//
-//                         addstr("Over input!  ");
-//
-//                         break;
-//
-//                 }
-//
-//
-//
-//                 c=getch();
-//
-//
-//
-//                 if(c=='\n')
-//
-//                 {
-//
-//                         input[input_idx]='\0';
-//
-//                 }
-//
-//                 else if(c==127)
-//
-//                 {
-//
-//                         if(idx>0)
-//
-//                         {
-//
-//                                 input[input_idx--]='\0';
-//
-//                                 move(input_row,input_col);
-//
-//                                 addstr("             ");
-//
-//                                 move(input_row,input_col);
-//
-//                                 addstr(input);
-//
-//                         }
-//
-//                         else
-//
-//                         {
-//
-//                                 move(input_row,input_col);
-//
-//                                 addstr("             ");
-//
-//                                 input_col--;
-//
-//                         }
-//
-//                 }
-//
-//                 else
-//
-//                 {
-//
-//                         input[input_idx++]=c;
-//
-//                         move(input_row,input_col++);
-//
-//                         addstr(input);
-//
-//                 }
-//
-//                 refresh();
-//
-//            	   alarm(1);
-//
-//            	   signal(SIGALRM,move_msg);
-//	
-//         }
+        set_ticker(delay);
 
 }
 
@@ -548,6 +388,13 @@ void move_msg(int signum){
 
 	int i=0;
 
+	tic_cnt++;
+	if(tic_cnt%3 == 0){
+		if(delay >300) {
+			delay = delay - 50;
+			set_ticker(delay);
+		}
+	}
 	if(dip_cnt < num_word[stage])
         add_word(word_list[dip_cnt],0,rand()%42+12); //랜덤위치에 단어 출력
 	
@@ -571,12 +418,9 @@ void move_msg(int signum){
 				sprintf(hp_message, "%d", hp[stage]);
 				mvaddstr(DEAD_LINE+4,INPUT_COL ,"          ");
 				mvaddstr(DEAD_LINE+4,INPUT_COL ,hp_message);
-				if(hp[stage] == 0) {
-					game_over();
-
-				signal(SIGALRM, SIG_IGN);
-				}
 				
+				if(hp[stage] == 0)
+					signal(SIGALRM, SIG_IGN);
 			
 			}
 			
@@ -585,24 +429,44 @@ void move_msg(int signum){
 			move(INPUT_ROW, INPUT_COL);
 			addstr(read_word);
 			
-		    refresh();	
+		    refresh();
+			clear_check();
 		}
-		
-		clear_check();
 	}
 
 
 void game_over() {
 	
+	char c;
+			
+			score = 0;
+			stage = 1;
+			move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
+			addstr(BLANK);
+			move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
+			addstr("GAME OVER!!");
+			move(DEAD_LINE+9,(LEFT_EDGE+50)/2);
+			addstr("Retry?(y/n)");
+			refresh();
 	
-	int i=0;
 	
-	move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
-	addstr(BLANK);
-	move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
-	addstr("GAME OVER!!\n");
-	refresh();
+				while(1) {
+				c=getchar();
 	
+				if(c == 'y') {
+					fflush(stdin);
+					start();
+					break;
+				}
+	
+				else if(c == 'n') {
+					fflush(stdin);
+					endwin();
+					exit(0);
+					break;
+				}
+	
+				}
 }
 
 void add_word(char *word,int row,int col)
@@ -610,117 +474,12 @@ void add_word(char *word,int row,int col)
 {
 
         int i;
-
- 
-
-        // if(idx < 15)
-//
-//         {
-
-                strcpy(display_word[dip_cnt].word,word);
-
-                display_word[dip_cnt].row=row;
-
-                display_word[dip_cnt].col=col;
-				
-				display_word[dip_cnt++].visible = 1;
-				
-
-	       // }
-       //
-       //  else
-       //
-       //  {
-       //
-
-    //    }
-
+        strcpy(display_word[dip_cnt].word,word);
+		display_word[dip_cnt].row=row;
+		display_word[dip_cnt].col=col;		
+		display_word[dip_cnt++].visible = 1;
 }
 
-
-// void print_word()
-//
-// {
-//
-//         int i;
-//
-// 		for(i=0; i<dip_cnt; i++) {
-//
-// 			if(display_word[i].visible == 1) {
-//
-// 				mvaddstr(display_word[i].row, display_word[i].col, BLANK);
-// 				mvaddstr(display_word[i].row, display_word[i].col, display_word[i].word);
-//
-// 			}
-//
-// 		}
-// //      print_map();
-//
-//         // for(i=0;(full != 1 && i<idx) || (full == 1 && i < 15);i++)
-// //
-// //         {
-// //
-// //                 move(message_list[i].row,41);
-// //
-// //                 addstr("                            ");
-// //
-// //                 move(message_list[i].row,message_list[i].col);
-// //
-// //                 addstr(message_list[i].word);
-// //
-// //                 if(message_list[i].row < 16)
-// //
-// //                 {
-// //
-// //                         message_list[i].row++;
-// //
-// // }
-// //
-// //                 else
-// //
-// //                 {
-// //
-// //                 }
-//
-// //        }
-//
-//         // print_message(15,39,"*|~~~~~~~~~~~~dead~~~~~~~~~~~~|*");
-//  //
-//  //        print_message(16,40,"|                            |*");
-//
-//         move(INPUT_ROW,INPUT_COL);
-//
-//         refresh();
-//
-// }
-
- 
-
-
-// int integer_to_string(int n,char *str)
-//
-// {
-//
-//         int temp;
-//
-//         if(n<=0)
-//
-//         {
-//
-//                 strcpy(str,"0");
-//
-//                 return 0;
-//
-//         }
-//
-//         temp=integer_to_string(n/10,str);
-//
-//         *(str+temp)=48+(n%10);
-//
-//         return temp+1;
-// }
-
- 
 
 void print_map()
 
@@ -746,19 +505,14 @@ void print_map()
         print_message(DEAD_LINE+4,LEFT_EDGE+1,"|Hp    :                                           |");
 		print_message(DEAD_LINE+5,LEFT_EDGE+1,"|Score :                                           |");
 
-        // move(19,50);
- //
- // 		integer_to_string(hp[stage],hp_message);
- //
- //        addstr(hp_message);
-		
+
 		sprintf(hp_message, "%d", hp[stage]);
 		mvaddstr(DEAD_LINE+4,INPUT_COL,hp_message);
 		sprintf(hp_message, "%d", score);
 		mvaddstr(DEAD_LINE+5,INPUT_COL,hp_message);
 
        print_message(DEAD_LINE+6,LEFT_EDGE+1,"|==================================================|");
-         print_message(DEAD_LINE+7,LEFT_EDGE+1,"**************************************************");
+         print_message(DEAD_LINE+7,LEFT_EDGE+1,"***************************************************");
 
         move(INPUT_ROW,INPUT_COL);
 
