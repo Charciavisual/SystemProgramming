@@ -49,7 +49,6 @@ void *thread_1(void *none);
 void clear_check();
 
  
-
 int stage = 1;
 char hp_message[5];
 int score = 0;
@@ -78,12 +77,25 @@ typedef struct word_list{
 
 WL display_word[30];
 
-char word_list[30][MESSAGE_SIZE] = {"apple","banana","little","phone","car"
+
+char word_list[3][30][MESSAGE_SIZE] = {"","","","",""
+										,"","","","",""
+										,"","","","",""
+										,"","","","",""
+										,"","","","",""
+										,"","","","",""
+						  ,"apple","banana","little","phone","car" //stage1
 					      ,"train","computer","bag","love","star"
 					      ,"queen","clock","dog","cat","monkey"
 					      ,"system","programming","project","linux","google"
 					      ,"train","computer","bag","love","star"
-					      ,"queen","clock","dog","cat","monkey"};
+					      ,"queen","clock","dog","cat","monkey"
+						  ,"game","baby","cosmetic","vitamin","floor" //stage2
+						  ,"hair","over","girl","baby","naver"
+						  ,"daum","throat","neck","news","brush"
+						  ,"movie","sun","like","poke","twitter"
+						  ,"stand","skin","diamond","tint","facebook"
+						  ,"view","amond","laptop","son","theater"};
 
 void main()
 
@@ -261,9 +273,9 @@ void clear_check() {
 		signal(SIGALRM, SIG_IGN);
 		move(DEAD_LINE+8,11);
 		addstr(BLANK);
-		move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
+		move(DEAD_LINE+8,((LEFT_EDGE+50)/2)-3);
 		addstr("Final Stage Clear!!");
-		move(DEAD_LINE+9,((LEFT_EDGE+50)/2));
+		move(DEAD_LINE+9,((LEFT_EDGE+50)/2)-3);
 		addstr("Congraturations!!!");
 		refresh();
 		exit_program = 0;
@@ -396,7 +408,7 @@ void move_msg(int signum){
 		}
 	}
 	if(dip_cnt < num_word[stage])
-        add_word(word_list[dip_cnt],0,rand()%42+12); //랜덤위치에 단어 출력
+        add_word(word_list[stage][dip_cnt],0,rand()%42+12); //랜덤위치에 단어 출력
 	
 	
 	for(i=0; i<dip_cnt; i++) {
