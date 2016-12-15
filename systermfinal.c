@@ -21,12 +21,12 @@
  
 
 #define MESSAGE_SIZE 20
-#define BLANK "                            "
+#define BLANK "                                                  "
 #define BUF_SIZE 20
 #define INPUT_ROW 18
-#define INPUT_COL 50
+#define INPUT_COL 20
 #define DEAD_LINE 15
-#define LEFT_EDGE 41
+#define LEFT_EDGE 10
 
 
 // typedef struct message{
@@ -188,11 +188,11 @@ void init_stage() {
 	clear();
 	print_map();
 	sprintf(start_msg, "Stage : %d", stage);
-	move(23,50);
+	move(DEAD_LINE+8,LEFT_EDGE+1);
 	addstr(BLANK);
-	move(24,50);
+	move(DEAD_LINE+9,LEFT_EDGE+1);
 	addstr(BLANK);
-	move(23,50);
+	move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
 	addstr(start_msg);
 	
 	
@@ -229,7 +229,7 @@ void input_word() { //단어를 입력하여 parent로 write
 		if(c=='\n') {
 			read_word[i] = '\0';
 			move(INPUT_ROW, INPUT_COL);
-			addstr("                   ");
+			addstr("                                          ");
 			move(INPUT_ROW, INPUT_COL);
 			break;
 		}
@@ -274,12 +274,12 @@ void compare_word(char word[]){
 		if(strcmp(display_word[i].word, word)==0)
 			if(display_word[i].visible == 1){
 		
-				mvaddstr(display_word[i].row, LEFT_EDGE, BLANK);	
+				mvaddstr(display_word[i].row, LEFT_EDGE+2, BLANK);	
 				display_word[i].visible = 0;
 				score += 10;
 				rmv_cnt++;
 				sprintf(hp_message, "%d", score);
-				mvaddstr(20,50,hp_message);
+				mvaddstr(20,INPUT_COL,hp_message);
 				clear_check();
 				break;
 			}
@@ -290,20 +290,33 @@ void compare_word(char word[]){
 
 void clear_check() {
 	
+	signal(SIGALRM, SIG_IGN);
+	
 	if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 1) {
 		
-		signal(SIGALRM, SIG_IGN);
 		stage++;
-		move(23,50);
+		move(DEAD_LINE+8,11);
 		addstr(BLANK);
-		move(23,50);
+		move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
 		addstr("Stage Clear!!");
-		move(24,41);
+		move(DEAD_LINE+9,((LEFT_EDGE+50)/2)-8);
 		addstr("Wait for start next stage.");
 		refresh();
 		sleep(3);
 		init_stage();
 		signal(SIGALRM,move_msg);
+	}
+	
+	else if(rmv_cnt == num_word[stage] && hp[stage] > 0 && stage == 2) {
+		
+		move(DEAD_LINE+8,11);
+		addstr(BLANK);
+		move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
+		addstr("Final Stage Clear!!");
+		move(DEAD_LINE+9,((LEFT_EDGE+50)/2));
+		addstr("Congraturations!!!");
+		refresh();
+		
 	}
 }
 
@@ -444,8 +457,8 @@ void print_message(int row,int col,char *msg)
 {
 
         move(row,col);
-
-        addstr("                                       "); //30칸
+		
+        addstr("                                                  "); 
 
         move(row,col);
 
@@ -536,14 +549,14 @@ void move_msg(int signum){
 	int i=0;
 
 	if(dip_cnt < num_word[stage])
-        add_word(word_list[dip_cnt],0,rand()%15+43); //랜덤위치에 단어 출력
+        add_word(word_list[dip_cnt],0,rand()%42+12); //랜덤위치에 단어 출력
 	
 	
 	for(i=0; i<dip_cnt; i++) {
 
 			if(display_word[i].row < DEAD_LINE && display_word[i].visible == 1) {
 		
-					mvaddstr(display_word[i].row, 41, BLANK);
+					mvaddstr(display_word[i].row, LEFT_EDGE+2, BLANK);
 					display_word[i].row += dir;
 					if(display_word[i].row != DEAD_LINE)
 						mvaddstr(display_word[i].row, display_word[i].col, display_word[i].word);
@@ -556,7 +569,8 @@ void move_msg(int signum){
 				hp[stage] = hp[stage] - 1;
 				rmv_cnt++;		
 				sprintf(hp_message, "%d", hp[stage]);
-				mvaddstr(19,50,hp_message);
+				mvaddstr(DEAD_LINE+4,INPUT_COL ,"          ");
+				mvaddstr(DEAD_LINE+4,INPUT_COL ,hp_message);
 				if(hp[stage] == 0) {
 					game_over();
 
@@ -567,7 +581,7 @@ void move_msg(int signum){
 			}
 			
 			move(INPUT_ROW, INPUT_COL);
-			addstr("                   ");
+			addstr("                                          ");
 			move(INPUT_ROW, INPUT_COL);
 			addstr(read_word);
 			
@@ -583,9 +597,9 @@ void game_over() {
 	
 	int i=0;
 	
-	move(23,50);
+	move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
 	addstr(BLANK);
-	move(23,50);
+	move(DEAD_LINE+8,(LEFT_EDGE+50)/2);
 	addstr("GAME OVER!!\n");
 	refresh();
 	
@@ -716,21 +730,21 @@ void print_map()
 
  
 
-        for(i=1;i<20;i++)
-                print_message(i,39,"*|                            |*");
+        for(i=1;i<DEAD_LINE+7;i++)
+        print_message(i, LEFT_EDGE,"*|                                                  |*");
 
  
 
-        print_message(15,39,"*|~~~~~~~~~~~~dead~~~~~~~~~~~~|*");
+        print_message(DEAD_LINE,LEFT_EDGE+1,"|~~~~~~~~~~~~~~~~~~~~~~~dead~~~~~~~~~~~~~~~~~~~~~~~|");
 
-        print_message(16,40,"|                            |*");
+      print_message(DEAD_LINE+1,LEFT_EDGE+1 ,"|                                                  |");
 
-        print_message(17,40,"|============================|*");
+         print_message(DEAD_LINE+2,LEFT_EDGE+1,"|==================================================|");
 
-        print_message(18,40,"|Input :                     |*");
+         print_message(DEAD_LINE+3,LEFT_EDGE+1,"|Input :                                           |");
 
-        print_message(19,40,"|Hp    :                     |*");
-		print_message(20,40,"|Score :                     |*");
+        print_message(DEAD_LINE+4,LEFT_EDGE+1,"|Hp    :                                           |");
+		print_message(DEAD_LINE+5,LEFT_EDGE+1,"|Score :                                           |");
 
         // move(19,50);
  //
@@ -739,16 +753,13 @@ void print_map()
  //        addstr(hp_message);
 		
 		sprintf(hp_message, "%d", hp[stage]);
-		mvaddstr(19,50,hp_message);
+		mvaddstr(DEAD_LINE+4,INPUT_COL,hp_message);
 		sprintf(hp_message, "%d", score);
-		mvaddstr(20,50,hp_message);
+		mvaddstr(DEAD_LINE+5,INPUT_COL,hp_message);
 
-        print_message(21,39,"*==============================*");
+       print_message(DEAD_LINE+6,LEFT_EDGE+1,"|==================================================|");
+         print_message(DEAD_LINE+7,LEFT_EDGE+1,"**************************************************");
 
- 
-
-        print_message(22,39,"********************************");
-
-        move(18,50);
+        move(INPUT_ROW,INPUT_COL);
 
 }
